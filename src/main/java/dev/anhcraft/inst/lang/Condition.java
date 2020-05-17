@@ -4,9 +4,9 @@ import dev.anhcraft.inst.values.Val;
 import org.jetbrains.annotations.NotNull;
 
 public class Condition {
-    private Val<?> left;
-    private Val<?> right;
-    private RelationalOp sign;
+    private final Val<?> left;
+    private final Val<?> right;
+    private final RelationalOp sign;
 
     public Condition(@NotNull Val<?> left, @NotNull Val<?> right, @NotNull RelationalOp sign) {
         this.left = left;

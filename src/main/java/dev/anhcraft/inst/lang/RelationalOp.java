@@ -58,8 +58,8 @@ public enum RelationalOp {
     EQUAL("==", (a, b) -> a.get().equals(b.get())),
     NOT_EQUAL("!=", (a, b) -> !a.get().equals(b.get()));
 
-    private String stringify;
-    private BiFunction<Val<?>, Val<?>, Boolean> check;
+    private final String stringify;
+    private final BiFunction<Val<?>, Val<?>, Boolean> check;
 
     RelationalOp(String stringify, BiFunction<Val<?>, Val<?>, Boolean> check) {
         this.check = check;

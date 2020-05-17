@@ -20,8 +20,8 @@ import java.util.function.Predicate;
 
 public class VM {
     private static final Predicate<Character> NAME_CHECK = c -> Character.isLetterOrDigit(c) || c == '_' || c == '-';
-    private Map<String, Val<?>> variables = new HashMap<>();
-    private Map<Integer, FunctionLinker> functions = new HashMap<>();
+    private final Map<String, Val<?>> variables = new HashMap<>();
+    private final Map<Integer, FunctionLinker> functions = new HashMap<>();
 
     public VM() {
         try {

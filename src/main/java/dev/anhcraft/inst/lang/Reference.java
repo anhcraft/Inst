@@ -4,7 +4,7 @@ import dev.anhcraft.inst.values.Val;
 import org.jetbrains.annotations.NotNull;
 
 public abstract class Reference implements Val<Object> {
-    private String target;
+    private final String target;
 
     protected Reference(@NotNull String target) {
         this.target = target;

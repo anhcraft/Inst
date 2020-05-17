@@ -9,9 +9,9 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 public class Instruction {
-    private String namespace;
-    private String function;
-    private Val<?>[] args;
+    private final String namespace;
+    private final String function;
+    private final Val<?>[] args;
     private Condition condition;
 
     public Instruction(@NotNull String namespace, @NotNull String function, @NotNull Val<?>[] args) {

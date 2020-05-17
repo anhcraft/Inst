@@ -11,8 +11,8 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 public class Session {
-    private VM VM;
-    private Instruction[] instructions;
+    private final VM VM;
+    private final Instruction[] instructions;
 
     Session(@NotNull VM VM, @NotNull Instruction[] instructions) {
         this.VM = VM;
