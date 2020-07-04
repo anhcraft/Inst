@@ -268,6 +268,7 @@ public class VM {
                         mode = 4;
                         args.add(compileVariable(temp.toString(), true));
                         temp = new StringBuilder();
+                        inStr = false;
                         continue;
                     } else {
                         escaped = false;
