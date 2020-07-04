@@ -127,13 +127,19 @@ public class VM {
     }
 
     public synchronized int registerFunctions(@NotNull Class<?> namespace) throws FunctionRegisterFailed {
+        return registerFunctions(namespace, null);
+    }
+
+    public synchronized <T> int registerFunctions(@NotNull Class<T> namespace, @Nullable T ins) throws FunctionRegisterFailed {
         Namespace ns = namespace.getDeclaredAnnotation(Namespace.class);
         if (ns == null) {
             throw new FunctionRegisterFailed("Namespace was not declared");
         }
         int count = 0;
         try {
-            Object ins = namespace.newInstance();
+            if(ins == null) {
+                ins = namespace.newInstance();
+            }
             for (Method m : namespace.getMethods()) {
                 m.setAccessible(true);
                 Function f = m.getAnnotation(Function.class);
@@ -166,6 +172,7 @@ public class VM {
                         throw new FunctionRegisterFailed(String.format("Function already registered (%s:%s)",ns.value(), f.value()));
                     } else {
                         DataType ctx = first;
+                        T finalIns = ins;
                         functions.put(hash, (session, args) -> {
                             for (int i = 0; i < args.length; i++) {
                                 Val<?> v = args[i];
@@ -182,7 +189,7 @@ public class VM {
                                 objects = args;
                             }
                             try {
-                                m.invoke(ins, objects);
+                                m.invoke(finalIns, objects);
                             } catch (Exception e) {
                                 e.printStackTrace();
                                 throw new RuntimeError(String.format("Function link broken (%s:%s)",ns.value(), f.value()));
