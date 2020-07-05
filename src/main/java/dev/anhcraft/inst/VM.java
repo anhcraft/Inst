@@ -130,7 +130,7 @@ public class VM {
         return registerFunctions(namespace, null);
     }
 
-    public synchronized <T> int registerFunctions(@NotNull Class<T> namespace, @Nullable T ins) throws FunctionRegisterFailed {
+    public synchronized <T> int registerFunctions(@NotNull Class<? extends T> namespace, @Nullable T ins) throws FunctionRegisterFailed {
         Namespace ns = namespace.getDeclaredAnnotation(Namespace.class);
         if (ns == null) {
             throw new FunctionRegisterFailed("Namespace was not declared");
