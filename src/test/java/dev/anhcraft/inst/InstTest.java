@@ -10,8 +10,28 @@ import org.junit.Test;
 import java.util.Arrays;
 
 public class InstTest {
+    private static void newSession(VM vm, String[] scripts){
+        try {
+            Session s = vm.newSession(Arrays.stream(scripts).map(vm::compileInstruction).toArray(Instruction[]::new));
+            System.out.println("=====================================================================");
+            int i = 1;
+            for(Instruction inst : s.getInstructions()){
+                System.out.println((i++) + ". " + inst.toString());
+            }
+            System.out.println("---------------------------------------------------------------------");
+            long start = System.currentTimeMillis();
+            s.execute();
+            long delta = System.currentTimeMillis() - start;
+            System.out.println("---------------------------------------------------------------------");
+            System.out.println("> Script executed in "+delta+" ms");
+            System.out.println("=====================================================================");
+        } catch (InstructionCompileFailed instructionCompileFailed) {
+            instructionCompileFailed.printStackTrace();
+        }
+    }
+
     @Test
-    public void test() {
+    public void test1() {
         String[] scripts = new String[] {
                 "CustomFunc:Hello()",
                 "Cache:Exists($a res)",
@@ -53,20 +73,21 @@ public class InstTest {
                 return "key";
             }
         });
-        try {
-            Session s = vm.newSession(Arrays.stream(scripts).map(vm::compileInstruction).toArray(Instruction[]::new));
-            System.out.println("---------------------------------------------------------------------");
-            for(Instruction i : s.getInstructions()){
-                System.out.println(i.toString());
-            }
-            System.out.println("---------------------------------------------------------------------");
-            long start = System.currentTimeMillis();
-            s.execute();
-            long delta = System.currentTimeMillis() - start;
-            System.out.println("---------------------------------------------------------------------");
-            System.out.println("Script executed in "+delta+" ms");
-        } catch (InstructionCompileFailed instructionCompileFailed) {
-            instructionCompileFailed.printStackTrace();
-        }
+        newSession(vm, scripts);
+    }
+
+    @Test
+    public void test2() {
+        newSession(new VM(), new String[]{
+                "System:Println(\".....\")",
+                "Inst:Jump(1)",
+                "System:Println(\"this line is hidden\")",
+                "System:Println(\"you see this, right?\")",
+                "Inst:Jump(3)",
+                "System:Println(\"nah?\")",
+                "System:Println(\"nah?\")",
+                "System:Println(\"nah?\")",
+                "System:Println(\"hello?...\")"
+        });
     }
 }
