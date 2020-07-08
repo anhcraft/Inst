@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 public class Session {
     private final VM VM;
     private final Instruction[] instructions;
+    private int currentInstruction;
 
     Session(@NotNull VM VM, @NotNull Instruction[] instructions) {
         this.VM = VM;
@@ -30,7 +31,8 @@ public class Session {
     }
 
     public void execute() {
-        for (Instruction inst : instructions) {
+        while (currentInstruction < instructions.length) {
+            Instruction inst = instructions[currentInstruction];
             DataType[] params = new DataType[inst.getArguments().length];
             int i = 0;
             for (Val<?> v : inst.getArguments()) {
@@ -43,6 +45,15 @@ public class Session {
             if(inst.getCondition() == null || inst.getCondition().test()) {
                 f.call(this, inst.getArguments());
             }
+            currentInstruction++;
         }
+    }
+
+    public int getCurrentInstruction() {
+        return currentInstruction;
+    }
+
+    public void setCurrentInstruction(int currentInstruction) {
+        this.currentInstruction = currentInstruction;
     }
 }

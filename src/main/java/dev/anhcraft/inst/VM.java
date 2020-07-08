@@ -7,6 +7,7 @@ import dev.anhcraft.inst.exceptions.InstructionCompileFailed;
 import dev.anhcraft.inst.exceptions.RuntimeError;
 import dev.anhcraft.inst.lang.*;
 import dev.anhcraft.inst.lang.defaults.CacheFunctions;
+import dev.anhcraft.inst.lang.defaults.InstFunctions;
 import dev.anhcraft.inst.lang.defaults.StringFunctions;
 import dev.anhcraft.inst.lang.defaults.SystemFunctions;
 import dev.anhcraft.inst.utils.MathUtil;
@@ -28,6 +29,7 @@ public class VM {
             registerFunctions(CacheFunctions.class);
             registerFunctions(SystemFunctions.class);
             registerFunctions(StringFunctions.class);
+            registerFunctions(InstFunctions.class);
         } catch (FunctionRegisterFailed functionRegisterFailed) {
             functionRegisterFailed.printStackTrace();
         }
