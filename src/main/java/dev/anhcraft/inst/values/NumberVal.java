@@ -1,4 +1,7 @@
 package dev.anhcraft.inst.values;
 
-public interface NumberVal<T extends Number> extends Val<T> {
+public abstract class NumberVal<T extends Number> extends Val<T> {
+    public NumberVal(T data) {
+        super(data);
+    }
 }

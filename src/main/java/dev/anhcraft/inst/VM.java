@@ -6,15 +6,14 @@ import dev.anhcraft.inst.exceptions.FunctionRegisterFailed;
 import dev.anhcraft.inst.exceptions.InstructionCompileFailed;
 import dev.anhcraft.inst.exceptions.RuntimeError;
 import dev.anhcraft.inst.lang.*;
-import dev.anhcraft.inst.lang.defaults.CacheFunctions;
-import dev.anhcraft.inst.lang.defaults.InstFunctions;
-import dev.anhcraft.inst.lang.defaults.StringFunctions;
-import dev.anhcraft.inst.lang.defaults.SystemFunctions;
+import dev.anhcraft.inst.lang.defaults.*;
 import dev.anhcraft.inst.utils.MathUtil;
 import dev.anhcraft.inst.values.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.reflect.Array;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Predicate;
@@ -22,94 +21,54 @@ import java.util.function.Predicate;
 public class VM {
     private static final Predicate<Character> NAME_CHECK = c -> Character.isLetterOrDigit(c) || c == '_' || c == '-';
     private final Map<String, Val<?>> variables = new HashMap<>();
-    private final Map<Integer, FunctionLinker> functions = new HashMap<>();
+    private final Map<String, Collection<Linker>> functions = new HashMap<>();
 
     public VM() {
         try {
-            registerFunctions(CacheFunctions.class);
+            registerFunctions(InstFunctions.class);
+            registerFunctions(VarFunctions.class);
             registerFunctions(SystemFunctions.class);
             registerFunctions(StringFunctions.class);
-            registerFunctions(InstFunctions.class);
+            registerFunctions(MathFunctions.class);
         } catch (FunctionRegisterFailed functionRegisterFailed) {
             functionRegisterFailed.printStackTrace();
         }
     }
 
-    private int hashFunc(String namespace, String func, DataType... params) {
-        Object[] objects = new Object[params.length + 2];
-        objects[0] = namespace.toLowerCase();
-        objects[1] = func.toLowerCase();
-        System.arraycopy(params, 0, objects, 2, params.length);
-        return Arrays.hashCode(objects);
-    }
-
     @NotNull
     public Val<?> compileVariable(@NotNull String str, boolean stringify){
         if(stringify){
-            return (StringVal) () -> str;
+            return new StringVal(str);
         }
         String word = str.trim();
         if(MathUtil.isNumber(word)) {
             if (word.indexOf('.') >= 0) {
-                return new DoubleVal() {
-                    private final double n = Double.parseDouble(word);
-
-                    @NotNull
-                    @Override
-                    public Double get() {
-                        return n;
-                    }
-                };
+                return new DoubleVal(Double.parseDouble(word));
             } else {
                 boolean b = (word.charAt(0) == '-' || word.charAt(0) == '+') ? word.length() <= 10 : word.length() <= 9;
-                return b ? new IntVal() {
-                    private final int n = Integer.parseInt(word);
-
-                    @NotNull
-                    @Override
-                    public Integer get() {
-                        return n;
-                    }
-                } : new LongVal() {
-                    private final long n = Long.parseLong(word);
-
-                    @NotNull
-                    @Override
-                    public Long get() {
-                        return n;
-                    }
-                };
+                return b ? new IntVal(Integer.parseInt(word)) : new LongVal(Long.parseLong(word));
             }
         } else if(str.equalsIgnoreCase("true")) {
-            return (BoolVal) () -> true;
+            return new BoolVal(true);
         } else if(str.equalsIgnoreCase("false")) {
-            return (BoolVal) () -> false;
+            return new BoolVal(false);
         } else {
             if(str.length() >= 2 && str.startsWith("$")) {
-                return new Reference(str.substring(1)) {
-                    @NotNull
-                    public Val<?> getVar() {
-                        Val<?> v = getVariable(getTarget());
-                        if(v == null){
-                            throw new RuntimeError("Unknown variable: " + getTarget());
+                String target = str.substring(1);
+                if(target.chars().allMatch(value -> NAME_CHECK.test((char) value))) {
+                    return new Reference(target) {
+                        @NotNull
+                        public Val<?> getVar() {
+                            Val<?> v = getVariable(getTarget());
+                            if (v == null) {
+                                throw new RuntimeError("Unknown variable: " + getTarget());
+                            }
+                            return v;
                         }
-                        return v;
-                    }
-
-                    @Override
-                    public @NotNull DataType type() {
-                        return getVar().type();
-                    }
-
-                    @NotNull
-                    @Override
-                    public Object get() {
-                        return getVar().get();
-                    }
-                };
-            } else {
-                return (StringVal) () -> str;
+                    };
+                }
             }
+            return new StringVal(str);
         }
     }
 
@@ -120,24 +79,32 @@ public class VM {
 
     @Nullable
     public Val<?> setVariable(@NotNull String name, @Nullable Val<?> val) {
-        return variables.put(name, val);
+        if(name.chars().allMatch(value -> NAME_CHECK.test((char) value))) {
+            return variables.put(name, val);
+        } else {
+            throw new UnsupportedOperationException("Invalid variable name");
+        }
     }
 
-    @Nullable
-    public FunctionLinker getFunction(@NotNull String namespace, @NotNull String func, @NotNull DataType... params) {
-        return functions.get(hashFunc(namespace, func, params));
+    @NotNull
+    public Map<String, Val<?>> getVariables() {
+        return Collections.unmodifiableMap(variables);
     }
 
-    public synchronized int registerFunctions(@NotNull Class<?> namespace) throws FunctionRegisterFailed {
-        return registerFunctions(namespace, null);
+    @NotNull
+    public Map<String, Collection<Linker>> getFunctions() {
+        return Collections.unmodifiableMap(functions);
     }
 
-    public synchronized <T> int registerFunctions(@NotNull Class<? extends T> namespace, @Nullable T ins) throws FunctionRegisterFailed {
+    public synchronized void registerFunctions(@NotNull Class<?> namespace) throws FunctionRegisterFailed {
+        registerFunctions(namespace, null);
+    }
+
+    public synchronized <T> void registerFunctions(@NotNull Class<? extends T> namespace, @Nullable T ins) throws FunctionRegisterFailed {
         Namespace ns = namespace.getDeclaredAnnotation(Namespace.class);
         if (ns == null) {
             throw new FunctionRegisterFailed("Namespace was not declared");
         }
-        int count = 0;
         try {
             if(ins == null) {
                 ins = namespace.newInstance();
@@ -145,66 +112,82 @@ public class VM {
             for (Method m : namespace.getMethods()) {
                 m.setAccessible(true);
                 Function f = m.getAnnotation(Function.class);
-                if (f != null) {
-                    Class<?>[] params = m.getParameterTypes();
-                    DataType first = null;
-                    int hash;
-                    if (params.length > 0) {
-                        List<DataType> pts = new ArrayList<>();
-                        for (Class<?> clazz : params) {
-                            DataType pt = DataType.fromClass(clazz);
-                            if(pt == null) {
-                                throw new FunctionRegisterFailed(String.format("Unknown parameter type %s (%s:%s)", clazz.getName(), ns.value(), f.value()));
-                            }
-                            if(pt == DataType.SESSION || pt == DataType.VM) {
-                                if (pts.isEmpty()) {
-                                    first = pt;
-                                } else {
-                                    throw new FunctionRegisterFailed(String.format("Parameter type %s must be put at head (%s:%s)", clazz.getName(), ns.value(), f.value()));
-                                }
-                                continue;
-                            }
-                            pts.add(pt);
-                        }
-                        hash = hashFunc(ns.value(), f.value(), pts.toArray(new DataType[0]));
-                    } else {
-                        hash = hashFunc(ns.value(), f.value());
+                if (f == null) continue;
+                boolean varArgs = m.isVarArgs();
+                List<ParamType> paramTypes = new ArrayList<>();
+                Class<?>[] params = m.getParameterTypes();
+                for (int i = 0, len = params.length; i < len; i++) {
+                    Class<?> param = params[i];
+                    if (varArgs && param.isArray() && i + 1 == len) {
+                        param = param.getComponentType();
                     }
-                    if (functions.get(hash) != null) {
-                        throw new FunctionRegisterFailed(String.format("Function already registered (%s:%s)",ns.value(), f.value()));
+                    if (Reference.class.isAssignableFrom(param)) {
+                        paramTypes.add(ParamType.REFERENCE);
+                    } else if (Val.class.isAssignableFrom(param)) {
+                        DataType dataType = DataType.findByValueClass(param);
+                        paramTypes.add(dataType == null ? ParamType.VAL : ParamType.findByDataType(dataType));
+                    } else if (VM.class.isAssignableFrom(param)) {
+                        paramTypes.add(ParamType.VM);
+                    } else if (Session.class.isAssignableFrom(param)) {
+                        paramTypes.add(ParamType.SESSION);
                     } else {
-                        DataType ctx = first;
-                        T finalIns = ins;
-                        functions.put(hash, (session, args) -> {
-                            for (int i = 0; i < args.length; i++) {
-                                Val<?> v = args[i];
-                                if(v instanceof Reference) {
-                                    args[i] = ((Reference) v).getVar();
-                                }
-                            }
-                            Object[] objects;
-                            if(ctx != null) {
-                                objects = new Object[args.length + 1];
-                                objects[0] = ctx == DataType.VM ? session.getVM() : session;
-                                System.arraycopy(args, 0, objects, 1, args.length);
-                            } else {
-                                objects = args;
-                            }
-                            try {
-                                m.invoke(finalIns, objects);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                                throw new RuntimeError(String.format("Function link broken (%s:%s)",ns.value(), f.value()));
-                            }
-                        });
-                        count++;
+                        throw new FunctionRegisterFailed("Unknown param type: " + param.getName());
                     }
                 }
+                if(m.getParameterCount() != paramTypes.size()){
+                    throw new FunctionRegisterFailed(String.format("Mismatch parameter count: %d != %d", m.getParameterCount(), paramTypes.size()));
+                }
+                T finalIns = ins;
+                functions.computeIfAbsent(ns.value()+f.value(), k -> new ArrayList<>()).add(new Linker(paramTypes, varArgs) {
+                    @Override
+                    public void call(@NotNull Session session, @NotNull List<Val<?>> args) {
+                        int paramSize = getParamTypes().size();
+                        Object[] values = new Object[m.getParameterCount()];
+                        int j = 0;
+                        for(int i = 0; i < values.length; i++){
+                            ParamType pt = getParamTypes().get(i);
+                            if(pt.getDataType() != null) {
+                                if(args.size() == j) break;
+                                Val<?> v = args.get(j++);
+                                values[i] = v instanceof Reference ? ((Reference) v).getVar() : v;
+                            } else if(pt == ParamType.VAL) {
+                                if(args.size() == j) break;
+                                values[i] = args.get(j++);
+                            } else if(pt == ParamType.REFERENCE) {
+                                if(args.size() == j) break;
+                                Val<?> v = args.get(j++);
+                                if(v instanceof Reference) {
+                                    values[i] = v;
+                                } else {
+                                    throw new RuntimeError(String.format("Variable reference required (%s:%s)", ns.value(), f.value()));
+                                }
+                            } else if(pt == ParamType.VM) {
+                                values[i] = session.getVM();
+                            } else if(pt == ParamType.SESSION) {
+                                values[i] = session;
+                            }
+                            if(i + 1 == paramSize && isVarArgs()) {
+                                int len = args.size() - j + 1;
+                                Object arr = Array.newInstance(pt.getParamClass(), len);
+                                for (int k = 0; k < len; k++) {
+                                    Array.set(arr, k, args.get(j++ - 1));
+                                }
+                                values[i] = arr;
+                                break;
+                            }
+                        }
+                        try {
+                            m.invoke(finalIns, values);
+                        } catch (IllegalAccessException | InvocationTargetException e) {
+                            e.printStackTrace();
+                            throw new RuntimeError(String.format("Function link broken (%s:%s)", ns.value(), f.value()));
+                        }
+                    }
+                });
             }
         } catch (InstantiationException | IllegalAccessException e) {
             throw new FunctionRegisterFailed("Could not create instance");
         }
-        return count;
     }
 
     @NotNull
@@ -485,9 +468,19 @@ public class VM {
             throw new InstructionCompileFailed("Invalid condition");
         }
 
-        Instruction inst = new Instruction(namespace, function, args.toArray(new Val<?>[0]));
-        inst.setCondition(condition);
-        return inst;
+        Collection<Linker> vs = functions.get(namespace+function);
+        if(vs == null) {
+            throw new InstructionCompileFailed(String.format("Function not found (%s:%s)", namespace, function));
+        } else {
+            Optional<Linker> linker = vs.stream().filter(v -> v.canLink(args)).findFirst();
+            if(linker.isPresent()) {
+                Instruction inst = new Instruction(namespace, function, args, linker.get());
+                inst.setCondition(condition);
+                return inst;
+            } else {
+                throw new InstructionCompileFailed(String.format("No function linked (%s:%s)", namespace, function));
+            }
+        }
     }
 
     @NotNull

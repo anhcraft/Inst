@@ -1,0 +1,67 @@
+// -------------------------------------------------
+// Custom function to print a message
+// -------------------------------------------------
+// Set label, ignore the next instruction ("Inst:Jump")
+Inst:Label($FUNC_PRINT 1)
+// Don't run the function on initialization
+Inst:Jump(2)
+// The function starts from there
+System:Println($arg1)
+// Go back
+Inst:Goto($EXIT)
+// end..
+
+// set the exit entry (ignore the next 2 instructions)
+Inst:Label($EXIT 2)
+// set the argument
+Var:Set($arg1 "Hello World")
+// go to the function
+Inst:Goto($FUNC_PRINT)
+
+Inst:Label($EXIT 2)
+Var:Set($arg1 "Read this message?")
+Inst:Goto($FUNC_PRINT)
+
+// -------------------------------------------------
+// Custom function to calculate area of a triangle
+// -------------------------------------------------
+Inst:Label($FUNC_PRINT 1)
+Inst:Jump(13)
+// S = a + b
+Math:Add($s $a $b)
+// S += c
+Math:Add($s $s $c)
+// S /= 2
+Math:Div($s $s 2)
+// a = s - a
+Math:Sub($a $s $a)
+// b = s - b
+Math:Sub($b $s $b)
+// c = s - c
+Math:Sub($c $s $c)
+// a *= b
+Math:Mul($a $a $b)
+// a *= c
+Math:Mul($a $a $c)
+// a *= s
+Math:Mul($a $a $s)
+// s = sqrt(a)
+Math:Sqrt($s $a)
+String:Format($s "%.3f" $s)
+System:Println("=> S = " $s)
+Inst:Goto($EXIT)
+//
+
+Inst:Label($EXIT 5)
+System:Print("Area of triangle with sides a = 4, b = 13, c = 15 ")
+Var:Set($a 4)
+Var:Set($b 13)
+Var:Set($c 15)
+Inst:Goto($FUNC_PRINT)
+
+Inst:Label($EXIT 5)
+System:Print("Area of triangle with sides a = 9, b = 11, c = 6 ")
+Var:Set($a 9)
+Var:Set($b 11)
+Var:Set($c 6)
+Inst:Goto($FUNC_PRINT)

@@ -1,0 +1,17 @@
+// Print numbers from 1 to 9
+Var:Set($i 1)
+Inst:Label($FLAG 0)
+System:Print($i)
+Math:Inc($i)
+Inst:Goto($FLAG) ? $i < 10
+System:Println("")
+
+// Print even numbers from range of 0 to 50
+Var:Set($str "All even numbers from 0 to 50 are:")
+Var:Set($i 0)
+Inst:Label($FLAG 0)
+Math:Mod($j $i 2)
+String:Concat($str $str " " $i) ? $j == 0
+Math:Inc($i)
+Inst:Goto($FLAG) ? $i <= 50
+System:Println($str)

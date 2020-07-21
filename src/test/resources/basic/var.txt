@@ -1,0 +1,12 @@
+Var:SetString($name "Joe")
+Var:SetInt($age "34")
+Var:Set($liveTime 1095724800)
+System:Println("Name: " $name)
+System:Println("Age: " $age)
+System:Println("Live time: " $liveTime)
+Var:Remove($name)
+Var:Exists($out $name)
+System:Println("Does $name exist? " $out)
+Var:GetType($out $age)
+System:Println("Yep! $age's type is Integer") ? $out == "INT"
+System:Println("something wrong??? Found `" $out "` expected `INT`") ? $out != "INT"
